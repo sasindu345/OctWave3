@@ -181,6 +181,91 @@ def tune_class_multipliers(out_dir, exp_name, folds, num_classes=4, verbose=True
             "multipliers": final_mult}
 
 
+def ensemble_diversity(targets, probs_a, probs_b, name_a="A", name_b="B"):
+    """Do two models make DIFFERENT mistakes? That, not raw score, decides ensembling.
+
+    A weaker model still helps if it is right where the stronger one is wrong. The
+    number that matters is the oracle ceiling - accuracy if you always picked the
+    correct model. If the ceiling is barely above the better model alone, there is
+    nothing for an ensemble to recover and blending is a waste of compute.
+    """
+    a_ok = probs_a.argmax(1) == targets
+    b_ok = probs_b.argmax(1) == targets
+    both = int((a_ok & b_ok).sum())
+    neither = int((~a_ok & ~b_ok).sum())
+    a_only = int((a_ok & ~b_ok).sum())
+    b_only = int((~a_ok & b_ok).sum())
+    n = len(targets)
+
+    agree = float((probs_a.argmax(1) == probs_b.argmax(1)).mean())
+    oracle = (both + a_only + b_only) / n
+    acc_a, acc_b = a_ok.mean(), b_ok.mean()
+    headroom = oracle - max(acc_a, acc_b)
+
+    print(f"DIVERSITY  {name_a} vs {name_b}   (n={n})")
+    print(f"  both correct    : {both:5d} ({100*both/n:5.1f}%)")
+    print(f"  both wrong      : {neither:5d} ({100*neither/n:5.1f}%)")
+    print(f"  {name_a[:12]:>12} only : {a_only:5d} ({100*a_only/n:5.1f}%)")
+    print(f"  {name_b[:12]:>12} only : {b_only:5d} ({100*b_only/n:5.1f}%)")
+    print(f"  prediction agreement: {100*agree:.1f}%")
+    print(f"  accuracy: {name_a} {acc_a:.4f} | {name_b} {acc_b:.4f}")
+    print(f"  ORACLE ceiling      : {oracle:.4f}  (headroom over best single: {headroom:+.4f})")
+    if headroom < 0.02:
+        print("  -> LOW complementarity: an ensemble has little to recover here.")
+    else:
+        print("  -> Real complementarity: blending is worth testing.")
+    return {"both": both, "neither": neither, "a_only": a_only, "b_only": b_only,
+            "agreement": agree, "oracle": float(oracle),
+            "acc_a": float(acc_a), "acc_b": float(acc_b), "headroom": float(headroom)}
+
+
+def blend_search(out_dir, exp_a, exp_b, folds, weights=None, metric="macro_f1"):
+    """Macro F1 of w*A + (1-w)*B, scored on EACH fold separately.
+
+    Per-fold rather than pooled on purpose: after the class-multiplier result, a
+    weight that wins only on pooled OOF is not trustworthy. A weight worth using
+    should win on most folds individually.
+    """
+    from src.utils import load_oof
+
+    if weights is None:
+        weights = [1.0, 0.7, 0.6, 0.5, 0.4, 0.3, 0.0]
+    fn = METRICS[metric]
+
+    rows = []
+    for w in weights:
+        per_fold = []
+        for f in folds:
+            pa, t = load_oof(out_dir, exp_a, f)
+            pb, t2 = load_oof(out_dir, exp_b, f)
+            assert (t == t2).all(), f"fold {f}: targets differ - splits are not aligned"
+            per_fold.append(fn(t, w * pa + (1 - w) * pb))
+        per_fold = np.array(per_fold)
+        rows.append({"w_a": w, "mean": per_fold.mean(),
+                     "std": per_fold.std(ddof=1) if len(per_fold) > 1 else 0.0,
+                     "per_fold": np.round(per_fold, 4)})
+
+    df = pd.DataFrame(rows)
+    pure_a = df.loc[df.w_a == 1.0, "mean"]
+    base = float(pure_a.iloc[0]) if len(pure_a) else float(df["mean"].max())
+    df["vs_pure_a"] = df["mean"] - base
+
+    # how often does each blend beat pure A on an individual fold?
+    a_folds = df.loc[df.w_a == 1.0, "per_fold"]
+    if len(a_folds):
+        a_arr = np.array(a_folds.iloc[0])
+        df["folds_beating_A"] = [int((np.array(r) > a_arr).sum()) for r in df["per_fold"]]
+
+    print(df.to_string(index=False))
+    best = df.loc[df["mean"].idxmax()]
+    print(f"\nbest mean at w_a={best.w_a}: {best['mean']:.4f} "
+          f"({best.vs_pure_a:+.4f} vs pure {exp_a})")
+    if "folds_beating_A" in df and best.w_a != 1.0:
+        print(f"  it beats pure A on {int(best.folds_beating_A)}/{len(folds)} individual folds")
+        print("  ADOPT only if it wins on 4+ folds AND the mean gain exceeds the 0.018 noise floor.")
+    return df
+
+
 def per_class_report(targets, probs, classes, n_boot=1000, seed=42):
     """Per-class precision / recall / F1 / support with bootstrap CIs on F1.
 
