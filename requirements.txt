@@ -1,0 +1,11 @@
+# Colab already has torch + torchvision preinstalled (CUDA build).
+# Only these extras are needed there.
+timm>=1.0.0
+albumentations>=1.4.0
+kaggle>=1.6.0
+pandas
+numpy
+scipy          # McNemar exact test, Pearson r in src/analysis.py
+scikit-learn
+matplotlib
+tqdm

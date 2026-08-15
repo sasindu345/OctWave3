@@ -1,0 +1,27 @@
+# data & model artifacts - never commit these
+data/*
+!data/.gitkeep
+outputs/checkpoints/*
+!outputs/checkpoints/.gitkeep
+outputs/submissions/*
+!outputs/submissions/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.zip
+*.csv
+!docs/*.csv
+
+# kaggle credentials
+kaggle.json
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# os
+.DS_Store
