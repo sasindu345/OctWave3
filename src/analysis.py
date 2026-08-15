@@ -85,6 +85,132 @@ METRICS = {
 
 
 # --------------------------------------------------------------------------
+# 0. Decision rule: is plain argmax the best way to turn probs into labels?
+# --------------------------------------------------------------------------
+
+
+def _macro_f1_mult(probs, targets, mult):
+    return f1_score(targets, (probs * mult).argmax(1), average="macro")
+
+
+def fit_class_multipliers(probs, targets, num_classes, grid=None, passes=3):
+    """Coordinate ascent on per-class probability multipliers, maximising macro F1.
+
+    Under class imbalance, plain argmax is not the macro-F1-optimal decision rule:
+    macro F1 weights a rare class as heavily as a common one, so trading a little
+    majority-class precision for minority-class recall can raise the score. This
+    searches one multiplier per class.
+
+    FIT ONLY. Always evaluate on data not used here - see tune_class_multipliers.
+    """
+    if grid is None:
+        grid = np.linspace(0.4, 2.6, 45)
+    mult = np.ones(num_classes, dtype=np.float64)
+    best = _macro_f1_mult(probs, targets, mult)
+    for _ in range(passes):
+        improved = False
+        for c in range(num_classes):
+            for g in grid:
+                trial = mult.copy()
+                trial[c] = g
+                s = _macro_f1_mult(probs, targets, trial)
+                if s > best + 1e-9:
+                    best, mult, improved = s, trial, True
+        if not improved:
+            break
+    return mult, best
+
+
+def tune_class_multipliers(out_dir, exp_name, folds, num_classes=4, verbose=True):
+    """Nested (leave-one-fold-out) validation of the multiplier trick.
+
+    For each fold: fit multipliers on the OTHER folds' OOF, score on this fold.
+    The held-out numbers are the only honest estimate - the in-fit number is
+    always optimistic and must never be reported as the result.
+
+    Returns per-fold argmax vs tuned macro F1 plus the multipliers fitted on all folds.
+    """
+    from src.utils import load_oof
+
+    data = {f: load_oof(out_dir, exp_name, f) for f in folds}
+    rows = []
+    for held in folds:
+        tr_p = np.concatenate([data[f][0] for f in folds if f != held])
+        tr_t = np.concatenate([data[f][1] for f in folds if f != held])
+        va_p, va_t = data[held]
+
+        mult, fit_score = fit_class_multipliers(tr_p, tr_t, num_classes)
+        base = _macro_f1_mult(va_p, va_t, np.ones(num_classes))
+        tuned = _macro_f1_mult(va_p, va_t, mult)
+        rows.append({
+            "held_fold": held, "argmax": base, "tuned": tuned,
+            "delta": tuned - base, "fit_score": fit_score,
+            "mult": np.round(mult, 3),
+        })
+        if verbose:
+            print(f"  fold {held}: argmax {base:.4f} -> tuned {tuned:.4f} "
+                  f"({tuned-base:+.4f})  mult={np.round(mult, 2)}")
+
+    df = pd.DataFrame(rows)
+    deltas = df["delta"].values
+    n_pos = int((deltas > 0).sum())
+
+    all_p = np.concatenate([data[f][0] for f in folds])
+    all_t = np.concatenate([data[f][1] for f in folds])
+    final_mult, _ = fit_class_multipliers(all_p, all_t, num_classes)
+
+    if deltas.mean() > 0.01 and n_pos >= max(4, len(folds) - 1):
+        verdict = "ADOPT"
+        why = f"mean {deltas.mean():+.4f} held-out, improves {n_pos}/{len(folds)} folds"
+    elif deltas.mean() > 0 and n_pos > len(folds) / 2:
+        verdict = "WEAK"
+        why = f"mean {deltas.mean():+.4f} - positive but under the 0.01 bar"
+    else:
+        verdict = "REJECT"
+        why = f"mean {deltas.mean():+.4f}, only {n_pos}/{len(folds)} folds improve"
+
+    if verbose:
+        print(f"\n  held-out delta: {deltas.mean():+.4f} +/- {deltas.std(ddof=1):.4f}")
+        print(f"  folds improved: {n_pos}/{len(folds)}")
+        print(f"  multipliers fitted on all folds: {np.round(final_mult, 3)}")
+        print(f"  VERDICT: {verdict} - {why}")
+
+    return {"per_fold": df, "mean_delta": float(deltas.mean()),
+            "std_delta": float(deltas.std(ddof=1)) if len(deltas) > 1 else 0.0,
+            "n_improved": n_pos, "verdict": verdict, "why": why,
+            "multipliers": final_mult}
+
+
+def per_class_report(targets, probs, classes, n_boot=1000, seed=42):
+    """Per-class precision / recall / F1 / support with bootstrap CIs on F1.
+
+    The CI is what stops you acting on a class whose score is built on 40 samples.
+    """
+    from sklearn.metrics import precision_recall_fscore_support
+
+    p, r, f, s = precision_recall_fscore_support(
+        targets, probs.argmax(1), labels=range(len(classes)), zero_division=0)
+
+    rng = np.random.default_rng(seed)
+    n = len(targets)
+    boot = np.empty((n_boot, len(classes)))
+    for b in range(n_boot):
+        idx = rng.integers(0, n, n)
+        boot[b] = f1_score(targets[idx], probs[idx].argmax(1),
+                           labels=range(len(classes)), average=None, zero_division=0)
+    lo, hi = np.percentile(boot, [2.5, 97.5], axis=0)
+
+    df = pd.DataFrame({
+        "class": classes, "precision": p.round(4), "recall": r.round(4),
+        "f1": f.round(4), "f1_lo": lo.round(4), "f1_hi": hi.round(4), "support": s,
+    })
+    print(df.to_string(index=False))
+    print(f"\nmacro F1 = {f.mean():.4f}   (weakest class: {classes[int(f.argmin())]} "
+          f"at {f.min():.4f})")
+    return df
+
+
+# --------------------------------------------------------------------------
 # 1. How uncertain is a single score?
 # --------------------------------------------------------------------------
 
