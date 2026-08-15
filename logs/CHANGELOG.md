@@ -3,6 +3,15 @@
 Code and structure changes, newest first. One line each — keep it cheap to maintain.
 (For run results, use [EXPERIMENTS.md](EXPERIMENTS.md) instead.)
 
+## 2026-08-16
+
+- Competition opened: `oct-wave-3-0-kaggle-challenge-02`. Slug set in notebook 01.
+- Added section 5b "Inspect the data" to notebook 01 — prints layout, class counts,
+  imbalance ratio, image shapes and submission columns. Tested on a synthetic dataset.
+- Still UNKNOWN until 5b runs: class count, data layout, image size, metric,
+  submission format.
+- Added `results/` (tracked) + Colab push cell so run logs and figures come back to git.
+
 ## 2026-08-15
 
 - Added `AGENTS.md` + `CLAUDE.md`: evidence rules for AI agents — verify before claiming,

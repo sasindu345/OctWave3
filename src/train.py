@@ -13,7 +13,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from tqdm.auto import tqdm
 
 from src.config import cfg as default_cfg
-from src.dataset import build_dataframe, build_loaders
+from src.dataset import build_dataframe, build_loaders, class_weights
 from src.model import build_model
 from src.utils import (
     AverageMeter, append_run_log, get_device, load_checkpoint,
@@ -83,11 +83,19 @@ def run_fold(cfg, fold: int = 0):
     print(f"device={device} | {torch.cuda.get_device_name(0) if device.type == 'cuda' else 'cpu'}")
 
     df = build_dataframe(cfg)
+    dist = df.target.value_counts().sort_index().to_dict()
     print(f"{len(df)} images | {cfg.num_classes} classes | fold {fold}")
+    print(f"class distribution: {dist}")
     train_dl, valid_dl = build_loaders(cfg, df, fold)
 
     model = build_model(cfg).to(device)
-    criterion = nn.CrossEntropyLoss(label_smoothing=cfg.label_smoothing)
+
+    weights = None
+    if cfg.class_weights:
+        w = class_weights(df[df.fold != fold], cfg.num_classes)
+        weights = torch.tensor(w, dtype=torch.float32, device=device)
+        print(f"class weights: {np.round(w, 3)}")
+    criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=cfg.label_smoothing)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=cfg.lr, epochs=cfg.epochs,
@@ -115,9 +123,13 @@ def run_fold(cfg, fold: int = 0):
             "gap": round(tr_loss - va_loss, 5),  # negative & widening = overfitting
         })
 
+        # Select on the COMPETITION metric, not accuracy. With this much imbalance
+        # the best-accuracy epoch and the best-macro-F1 epoch are often different.
+        score = f1 if cfg.metric == "macro_f1" else acc
+
         save_checkpoint(last_path, model, optimizer, scaler, epoch, best_score, cfg)
-        if acc > best_score:
-            best_score, bad_epochs = acc, 0
+        if score > best_score:
+            best_score, bad_epochs = score, 0
             save_checkpoint(best_path, model, optimizer, scaler, epoch, best_score, cfg)
             save_oof(cfg.out_dir, cfg.exp_name, fold, probs, gts)
             print(f"  -> new best {best_score:.4f}")
@@ -127,7 +139,7 @@ def run_fold(cfg, fold: int = 0):
                 print("early stopping")
                 break
 
-    print(f"fold {fold} done | best acc {best_score:.4f} | {best_path}")
+    print(f"fold {fold} done | best {cfg.metric} {best_score:.4f} | {best_path}")
     return best_score
 
 

@@ -32,13 +32,19 @@ def predict(cfg, ckpt_paths, test_df):
     return probs
 
 
-def make_submission(cfg, probs, test_df, classes, out_name="submission.csv"):
+def make_submission(cfg, probs, test_df, out_name="submission.csv"):
+    """Writes filename,appearance - appearance as a plain int 0-3.
+
+    Labels were never remapped (they are already 0-3), so argmax is the label.
+    """
     sub = pd.DataFrame({
-        cfg.image_col: [Path(p).stem for p in test_df["path"]],
-        cfg.label_col: [classes[i] for i in probs.argmax(1)],
+        cfg.image_col: test_df["filename"].values,
+        cfg.label_col: probs.argmax(1).astype(int),
     })
     out_path = Path(cfg.out_dir) / "submissions" / out_name
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sub.to_csv(out_path, index=False)
+
     print(f"wrote {out_path} ({len(sub)} rows)")
+    print("predicted class distribution:\n", sub[cfg.label_col].value_counts().sort_index())
     return sub

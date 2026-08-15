@@ -27,7 +27,10 @@ OctWave3/
 │   ├── analysis.py            # statistical tests + standard charts
 │   └── utils.py               # seeding, checkpoints, logging
 ├── data/                      # downloaded here, gitignored
-├── outputs/                   # checkpoints, oof/, figures/, submissions/ - gitignored
+├── outputs/                   # checkpoints, oof/, figures/ - lives in Drive, gitignored
+├── results/                   # TRACKED - small evidence pushed back from Colab
+│   ├── run_log.jsonl          #   per-epoch metrics
+│   └── figures/               #   charts
 ├── logs/
 │   ├── CHANGELOG.md           # what changed in the code, by date
 │   ├── EXPERIMENTS.md         # what each run scored

@@ -14,33 +14,36 @@ class Config:
     data_dir: Path = Path("data")
     out_dir: Path = Path("outputs")
 
-    # Set once the competition data layout is known.
-    # "folder" -> data_dir/train/<class_name>/*.jpg
-    # "csv"    -> data_dir/train.csv with columns [image_col, label_col]
-    data_mode: str = "folder"
+    # oct-wave-3-0: every image (train AND test) sits in one flat images/ folder;
+    # train.csv and test.csv say which is which. Filenames already carry ".jpg".
+    images_dir: str = "images"
     train_csv: str = "train.csv"
-    image_col: str = "image_id"
-    label_col: str = "label"
-    image_ext: str = ".jpg"
+    test_csv: str = "test.csv"
+    image_col: str = "filename"
+    label_col: str = "appearance"
 
     # --- model ---
     model_name: str = "tf_efficientnet_b0"  # any timm model
     pretrained: bool = True
-    num_classes: int = 10  # UPDATE when competition starts
-    drop_rate: float = 0.0
+    num_classes: int = 4    # 0 neither, 1 Tom, 2 Jerry, 3 both
+    drop_rate: float = 0.3  # only 2680 training images - regularise hard
 
     # --- data ---
     img_size: int = 224
-    batch_size: int = 64        # T4 (16GB): b0@224 ~64, b3@300 ~24, b4@380 ~12
+    batch_size: int = 32        # T4 (16GB): b0@224 ~64, b3@300 ~24, b4@380 ~12
     num_workers: int = 2        # Colab only gives ~2 usable CPU cores
     n_folds: int = 5
     train_folds: list = field(default_factory=lambda: [0])  # [0,1,2,3,4] for full CV
 
     # --- training ---
-    epochs: int = 10
+    # The competition metric is MACRO F1 on a severely imbalanced training set.
+    # Both settings below exist because of that, and matter more than the backbone.
+    metric: str = "macro_f1"     # what early stopping and "best" are judged on
+    class_weights: bool = True   # inverse-frequency weights so rare classes count
+    epochs: int = 12
     lr: float = 3e-4
     weight_decay: float = 1e-4
-    label_smoothing: float = 0.0
+    label_smoothing: float = 0.05  # train labels are noisy; test labels are clean
     amp: bool = True            # mixed precision - roughly 2x faster on T4
     grad_accum: int = 1
     early_stop_patience: int = 5

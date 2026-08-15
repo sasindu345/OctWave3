@@ -57,40 +57,70 @@ class ImageDataset(Dataset):
         return img, self.labels[i]
 
 
-def build_dataframe(cfg) -> pd.DataFrame:
-    """Returns a df with columns [path, target, fold] plus cfg.class_names side effect."""
+def _images_root(cfg) -> Path:
+    """images.zip may unzip to data/images/ or straight into data/. Find which."""
     data_dir = Path(cfg.data_dir)
+    for cand in (data_dir / cfg.images_dir, data_dir):
+        if cand.is_dir() and any(cand.glob("*.jpg")):
+            return cand
+    raise FileNotFoundError(
+        f"no .jpg files in {data_dir/cfg.images_dir} or {data_dir} - did images.zip unzip?")
 
-    if cfg.data_mode == "folder":
-        train_root = data_dir / "train"
-        classes = sorted(p.name for p in train_root.iterdir() if p.is_dir())
-        cls_to_idx = {c: i for i, c in enumerate(classes)}
-        rows = [
-            {"path": p, "target": cls_to_idx[p.parent.name]}
-            for p in train_root.rglob(f"*{cfg.image_ext}")
-        ]
-        df = pd.DataFrame(rows)
-    else:
-        raw = pd.read_csv(data_dir / cfg.train_csv)
-        classes = sorted(raw[cfg.label_col].unique().tolist())
-        cls_to_idx = {c: i for i, c in enumerate(classes)}
-        df = pd.DataFrame({
-            "path": [
-                data_dir / "train" / f"{x}{cfg.image_ext}" for x in raw[cfg.image_col]
-            ],
-            "target": raw[cfg.label_col].map(cls_to_idx),
-        })
 
-    if df.empty:
-        raise RuntimeError(f"no images found under {data_dir} (mode={cfg.data_mode})")
+def build_dataframe(cfg) -> pd.DataFrame:
+    """Training rows from train.csv, as columns [path, target, fold].
+
+    Labels are already integers 0-3, so they are used directly as class indices -
+    no mapping, which keeps predictions aligned with the submission format.
+    """
+    data_dir = Path(cfg.data_dir)
+    img_root = _images_root(cfg)
+    raw = pd.read_csv(data_dir / cfg.train_csv)
+
+    missing = [c for c in (cfg.image_col, cfg.label_col) if c not in raw.columns]
+    if missing:
+        raise KeyError(f"{cfg.train_csv} is missing {missing}; it has {list(raw.columns)}")
+
+    df = pd.DataFrame({
+        "path": [img_root / f for f in raw[cfg.image_col]],
+        "target": raw[cfg.label_col].astype(int),
+    })
+
+    absent = [p for p in df.path[:50] if not p.exists()]
+    if absent:
+        raise FileNotFoundError(f"listed in {cfg.train_csv} but not on disk: {absent[:3]}")
 
     skf = StratifiedKFold(n_splits=cfg.n_folds, shuffle=True, random_state=cfg.seed)
     df["fold"] = -1
     for fold, (_, val_idx) in enumerate(skf.split(df, df["target"])):
         df.loc[val_idx, "fold"] = fold
 
-    df.attrs["classes"] = classes
+    df.attrs["classes"] = sorted(df.target.unique().tolist())
     return df
+
+
+def build_test_dataframe(cfg) -> pd.DataFrame:
+    """Test rows from test.csv, as columns [path, filename] - no labels."""
+    data_dir = Path(cfg.data_dir)
+    img_root = _images_root(cfg)
+    raw = pd.read_csv(data_dir / cfg.test_csv)
+    return pd.DataFrame({
+        "path": [img_root / f for f in raw[cfg.image_col]],
+        "filename": raw[cfg.image_col],
+    })
+
+
+def class_weights(df: pd.DataFrame, num_classes: int):
+    """Inverse-frequency weights, normalised to mean 1.
+
+    Needed because the metric is macro F1 on a severely imbalanced set: unweighted
+    training lets the model win on the majority class while scoring ~0 F1 on the
+    rare ones, which macro-averaging punishes hard.
+    """
+    counts = np.bincount(df["target"], minlength=num_classes).astype(float)
+    counts[counts == 0] = 1.0            # never divide by zero on an absent class
+    w = counts.sum() / (num_classes * counts)
+    return w / w.mean()
 
 
 def build_loaders(cfg, df: pd.DataFrame, fold: int):

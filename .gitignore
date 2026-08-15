@@ -1,10 +1,11 @@
 # data & model artifacts - never commit these
 data/*
 !data/.gitkeep
-outputs/checkpoints/*
-!outputs/checkpoints/.gitkeep
-outputs/submissions/*
-!outputs/submissions/.gitkeep
+outputs/*                       # everything here lives in Drive, not git
+!outputs/.gitkeep
+
+# results/ IS tracked - it is the small stuff that travels back from Colab
+# (run logs + figures, a few hundred KB). Big files stay in Drive.
 *.pt
 *.pth
 *.ckpt

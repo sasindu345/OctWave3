@@ -11,6 +11,25 @@ after:   add a row to logs/EXPERIMENTS.md  ->  commit
 You edit `.py` files in your normal editor with normal diffs. The notebook stays
 unchanged, so it never conflicts.
 
+## Getting results off Colab
+
+Colab is a separate machine. Nothing comes back on its own. Three channels:
+
+| Channel | Setup | Use it for |
+|---|---|---|
+| **Copy-paste** | none | errors, epoch logs, `decide()` verdicts — covers most cases |
+| **Push to GitHub** | `GH_TOKEN` secret, once | run logs + figures; cell 10 of notebook 01 does it |
+| **Drive Desktop** | install the app | browsing everything, offline |
+
+What actually needs to travel is small — a `decide()` verdict is six lines of text.
+Checkpoints (~50MB) and raw predictions never go into git; they stay in Drive.
+
+Tracked in git: `results/run_log.jsonl`, `results/figures/*.png`.
+Not tracked: `outputs/` (all of it), `data/`, `*.pt`, `*.csv`.
+
+After a push from Colab, run `git pull` on your laptop and the run log and charts
+are there to read.
+
 ## If you DO change the notebook in Colab
 
 1. `Edit → Clear all outputs` (keeps the diff readable — outputs are huge base64 blobs)
