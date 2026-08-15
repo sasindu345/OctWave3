@@ -1,0 +1,12 @@
+{"ts": "2026-08-15 19:23:41", "exp": "exp01_baseline", "fold": 0, "epoch": 1, "train_loss": 2.71048, "val_loss": 1.88486, "acc": 0.38619, "f1": 0.33812, "gap": 0.82562}
+{"ts": "2026-08-15 19:24:01", "exp": "exp01_baseline", "fold": 0, "epoch": 2, "train_loss": 1.94251, "val_loss": 1.4902, "acc": 0.50187, "f1": 0.45839, "gap": 0.45231}
+{"ts": "2026-08-15 19:24:20", "exp": "exp01_baseline", "fold": 0, "epoch": 3, "train_loss": 1.52111, "val_loss": 1.23889, "acc": 0.61194, "f1": 0.54949, "gap": 0.28222}
+{"ts": "2026-08-15 19:24:40", "exp": "exp01_baseline", "fold": 0, "epoch": 4, "train_loss": 1.15613, "val_loss": 1.22999, "acc": 0.57463, "f1": 0.5328, "gap": -0.07386}
+{"ts": "2026-08-15 19:24:58", "exp": "exp01_baseline", "fold": 0, "epoch": 5, "train_loss": 1.0021, "val_loss": 1.18198, "acc": 0.71455, "f1": 0.64986, "gap": -0.17988}
+{"ts": "2026-08-15 19:25:18", "exp": "exp01_baseline", "fold": 0, "epoch": 6, "train_loss": 0.8534, "val_loss": 1.10622, "acc": 0.69963, "f1": 0.63271, "gap": -0.25282}
+{"ts": "2026-08-15 19:25:36", "exp": "exp01_baseline", "fold": 0, "epoch": 7, "train_loss": 0.76854, "val_loss": 1.13922, "acc": 0.74254, "f1": 0.66469, "gap": -0.37068}
+{"ts": "2026-08-15 19:25:55", "exp": "exp01_baseline", "fold": 0, "epoch": 8, "train_loss": 0.69934, "val_loss": 1.16434, "acc": 0.74067, "f1": 0.66865, "gap": -0.465}
+{"ts": "2026-08-15 19:26:15", "exp": "exp01_baseline", "fold": 0, "epoch": 9, "train_loss": 0.64535, "val_loss": 1.11935, "acc": 0.73507, "f1": 0.66832, "gap": -0.474}
+{"ts": "2026-08-15 19:26:34", "exp": "exp01_baseline", "fold": 0, "epoch": 10, "train_loss": 0.62848, "val_loss": 1.1303, "acc": 0.75, "f1": 0.68176, "gap": -0.50182}
+{"ts": "2026-08-15 19:26:53", "exp": "exp01_baseline", "fold": 0, "epoch": 11, "train_loss": 0.58855, "val_loss": 1.12835, "acc": 0.75, "f1": 0.67596, "gap": -0.53981}
+{"ts": "2026-08-15 19:27:11", "exp": "exp01_baseline", "fold": 0, "epoch": 12, "train_loss": 0.57812, "val_loss": 1.14308, "acc": 0.75933, "f1": 0.68161, "gap": -0.56495}
