@@ -61,7 +61,9 @@ def use_house_style():
 
 METRICS = {
     "accuracy": lambda y, p: accuracy_score(y, p.argmax(1)),
+    "acc": lambda y, p: accuracy_score(y, p.argmax(1)),
     "macro_f1": lambda y, p: f1_score(y, p.argmax(1), average="macro"),
+    "f1": lambda y, p: f1_score(y, p.argmax(1), average="macro"),
     "log_loss": lambda y, p: -log_loss(y, p, labels=list(range(p.shape[1]))),  # negated: higher=better
 }
 
@@ -130,7 +132,7 @@ def mcnemar(targets, probs_a, probs_b):
     b_only = int((a_ok & ~b_ok).sum())
     c_only = int((~a_ok & b_ok).sum())
     if b_only + c_only == 0:
-        return {"b": 0, "c": 0, "p_value": 1.0, "significant": False}
+        return {"a_right_b_wrong": 0, "a_wrong_b_right": 0, "p_value": 1.0, "significant": False}
     p = stats.binomtest(c_only, b_only + c_only, 0.5).pvalue
     return {"a_right_b_wrong": b_only, "a_wrong_b_right": c_only,
             "p_value": float(p), "significant": bool(p < 0.05)}
@@ -380,16 +382,25 @@ def overfit_check(run_log: pd.DataFrame, exp_name=None, fold=None, metric="f1"):
     if len(df) < 3:
         return {"verdict": "UNKNOWN", "why": "need at least 3 epochs"}
 
+    metric_col = metric
+    if metric_col not in df.columns:
+        if metric in ("macro_f1", "f1") and "f1" in df.columns:
+            metric_col = "f1"
+        elif metric in ("accuracy", "acc") and "acc" in df.columns:
+            metric_col = "acc"
+        else:
+            raise KeyError(f"Metric column '{metric}' not found in run_log columns: {list(df.columns)}")
+
     last = int(df.epoch.iloc[-1])
     val_min_ep = int(df.loc[df.val_loss.idxmin(), "epoch"])
-    best_ep = int(df.loc[df[metric].idxmax(), "epoch"])
+    best_ep = int(df.loc[df[metric_col].idxmax(), "epoch"])
 
     val_rise = float(df.val_loss.iloc[-1] - df.val_loss.min())
     gap_at_best = float(df.loc[df.epoch == val_min_ep, "val_loss"].iloc[0]
                         - df.loc[df.epoch == val_min_ep, "train_loss"].iloc[0])
     gap_at_end = float(df.val_loss.iloc[-1] - df.train_loss.iloc[-1])
-    metric_after_turn = float(df[df.epoch >= val_min_ep][metric].max()
-                              - df.loc[df.epoch == val_min_ep, metric].iloc[0])
+    metric_after_turn = float(df[df.epoch >= val_min_ep][metric_col].max()
+                              - df.loc[df.epoch == val_min_ep, metric_col].iloc[0])
 
     turned = val_min_ep <= last - 2 and val_rise > 0.01
     widening = gap_at_end > gap_at_best + 0.05
@@ -414,8 +425,8 @@ def overfit_check(run_log: pd.DataFrame, exp_name=None, fold=None, metric="f1"):
           + (f" fold {fold}" if fold is not None else ""))
     print(f"  val loss bottomed at epoch {val_min_ep} of {last}, then rose {val_rise:+.4f}")
     print(f"  loss gap  {gap_at_best:.3f} (best) -> {gap_at_end:.3f} (end)")
-    print(f"  {metric} gain after the turn: {metric_after_turn:+.4f}")
-    print(f"  best {metric} at epoch {best_ep}")
+    print(f"  {metric_col} gain after the turn: {metric_after_turn:+.4f}")
+    print(f"  best {metric_col} at epoch {best_ep}")
     print(f"  VERDICT: {verdict} - {why}")
     return r
 
