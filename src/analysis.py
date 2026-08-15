@@ -357,6 +357,69 @@ def plot_cv_vs_lb(experiments: pd.DataFrame, ax=None):
     return ax
 
 
+def overfit_check(run_log: pd.DataFrame, exp_name=None, fold=None, metric="f1"):
+    """Turn 'is it overfitting?' into four measurable tests with a verdict.
+
+    Opinion is not evidence. These are the numbers that decide it:
+
+      1. VAL LOSS TURN   - epochs since validation loss bottomed out.
+                           Rising val loss + falling train loss = overfitting.
+      2. LOSS GAP        - (val_loss - train_loss) at the best epoch vs at the end.
+                           A widening gap means the model is memorising.
+      3. METRIC PLATEAU  - did the competition metric still improve after the turn?
+                           If yes, the overfitting is not costing us anything yet.
+      4. BEST-EPOCH LAG  - how far the best epoch sits from the last one. Best epoch
+                           at the very end means it was still learning: train longer.
+    """
+    df = run_log.copy()
+    if exp_name is not None:
+        df = df[df.exp == exp_name]
+    if fold is not None:
+        df = df[df.fold == fold]
+    df = df.sort_values("epoch")
+    if len(df) < 3:
+        return {"verdict": "UNKNOWN", "why": "need at least 3 epochs"}
+
+    last = int(df.epoch.iloc[-1])
+    val_min_ep = int(df.loc[df.val_loss.idxmin(), "epoch"])
+    best_ep = int(df.loc[df[metric].idxmax(), "epoch"])
+
+    val_rise = float(df.val_loss.iloc[-1] - df.val_loss.min())
+    gap_at_best = float(df.loc[df.epoch == val_min_ep, "val_loss"].iloc[0]
+                        - df.loc[df.epoch == val_min_ep, "train_loss"].iloc[0])
+    gap_at_end = float(df.val_loss.iloc[-1] - df.train_loss.iloc[-1])
+    metric_after_turn = float(df[df.epoch >= val_min_ep][metric].max()
+                              - df.loc[df.epoch == val_min_ep, metric].iloc[0])
+
+    turned = val_min_ep <= last - 2 and val_rise > 0.01
+    widening = gap_at_end > gap_at_best + 0.05
+    still_gaining = metric_after_turn > 0.005
+
+    if turned and widening and not still_gaining:
+        verdict, why = "OVERFITTING", "val loss rising, gap widening, metric no longer improving"
+    elif turned and widening:
+        verdict, why = "MILD", "val loss turned up but the metric is still improving - little cost"
+    elif best_ep >= last:
+        verdict, why = "UNDERTRAINED", "best epoch is the last epoch - it was still learning"
+    else:
+        verdict, why = "HEALTHY", "no sustained rise in validation loss"
+
+    r = {"verdict": verdict, "why": why, "last_epoch": last,
+         "val_loss_min_epoch": val_min_ep, "best_metric_epoch": best_ep,
+         "val_loss_rise_since_min": round(val_rise, 4),
+         "gap_at_best": round(gap_at_best, 4), "gap_at_end": round(gap_at_end, 4),
+         "metric_gain_after_turn": round(metric_after_turn, 4)}
+
+    print(f"OVERFIT CHECK - {exp_name or 'all'}"
+          + (f" fold {fold}" if fold is not None else ""))
+    print(f"  val loss bottomed at epoch {val_min_ep} of {last}, then rose {val_rise:+.4f}")
+    print(f"  loss gap  {gap_at_best:.3f} (best) -> {gap_at_end:.3f} (end)")
+    print(f"  {metric} gain after the turn: {metric_after_turn:+.4f}")
+    print(f"  best {metric} at epoch {best_ep}")
+    print(f"  VERDICT: {verdict} - {why}")
+    return r
+
+
 def evidence_report(cfg, exp_name, folds, classes, run_log=None, out_png=None):
     """One call -> the four-panel figure that should accompany every decision."""
     from src.utils import load_oof

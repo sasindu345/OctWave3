@@ -3,6 +3,21 @@
 Code and structure changes, newest first. One line each — keep it cheap to maintain.
 (For run results, use [EXPERIMENTS.md](EXPERIMENTS.md) instead.)
 
+## 2026-08-16 (later)
+
+- exp01 baseline complete: CV macro F1 0.6818 (fold 0), **LB 0.7251**. All-zeros
+  floor is 0.1521, so the pipeline is confirmed working end to end.
+- Real class distribution measured: `{0: 368, 1: 1252, 2: 841, 3: 219}` — 5.7x
+  imbalance, moderate rather than severe. Majority class is Tom (1), not "neither".
+- Added `overfit_check()` to `src/analysis.py` — four measurable tests
+  (val-loss turn, loss gap, metric plateau, best-epoch lag) returning
+  HEALTHY / MILD / OVERFITTING / UNDERTRAINED. Validated on three known cases.
+- Added [docs/MODELING.md](../docs/MODELING.md): model choice rationale, the
+  anti-overfitting toolkit, and the evidence standard with thresholds.
+- Four Colab environment failures fixed along the way: private-repo auth (GH_TOKEN),
+  nested `images/images/` path, `sys.path` loss after runtime restart, and stale
+  import caches after re-cloning.
+
 ## 2026-08-16
 
 - Competition opened: `oct-wave-3-0-kaggle-challenge-02`. Slug set in notebook 01.

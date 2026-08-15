@@ -22,13 +22,15 @@ validation understates true performance. CV is a conservative, usable proxy.
 
 Do them in this order. Stop when time runs out; every step leaves a submittable model.
 
-- [ ] **exp01 baseline, fold 0** → submit immediately (~5 min on T4)
-- [ ] **All 5 folds + ensemble** (~30 min) — biggest reliable gain, low risk
-- [ ] **TTA** (horizontal flip) — ~free, usually +0.005 macro F1
-- [ ] Bigger image size 224 → 320 — cartoon characters can be small in frame
-- [ ] Stronger backbone (efficientnet_b3, convnext_tiny)
+- [x] **exp01 baseline, fold 0** → CV 0.6818, **LB 0.7251** ✅
+- [ ] **exp02: all 5 folds + ensemble** (~25 min) — biggest reliable gain, low risk
+- [ ] **exp03: TTA** (horizontal flip) — ~free
+- [ ] **exp04: image size 224 → 320** — 854px source downscaled 3.8×; Jerry is small
+- [ ] exp05: class_weights=False — predicted test distribution is skewed far from the
+      training prior (35.6% class 0 predicted vs 13.7% in train); weights may over-correct
+- [ ] Stronger backbone (efficientnet_b3, convnext_tiny) — only if the above are done
 - [ ] Tune per-class thresholds on OOF — macro F1 responds strongly to this
-- [ ] Mixup / CutMix — only if overfitting shows in the learning curves
+- [ ] Mixup / CutMix — only if `overfit_check` returns OVERFITTING, not MILD
 
 Skipped deliberately: pseudo-labelling, big ensembles, long schedules. Not enough
 time for them to pay off, and each one adds a way to lose the working submission.
