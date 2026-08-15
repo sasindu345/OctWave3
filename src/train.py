@@ -3,6 +3,7 @@
 Run from the notebook:   from src.train import run_fold; run_fold(cfg, fold=0)
 Or from a terminal:      python -m src.train --epochs 10 --model_name resnet50
 """
+
 import argparse
 from pathlib import Path
 
@@ -16,12 +17,19 @@ from src.config import cfg as default_cfg
 from src.dataset import build_dataframe, build_loaders, class_weights
 from src.model import build_model
 from src.utils import (
-    AverageMeter, append_run_log, get_device, load_checkpoint,
-    save_checkpoint, save_oof, seed_everything,
+    AverageMeter,
+    append_run_log,
+    get_device,
+    load_checkpoint,
+    save_checkpoint,
+    save_oof,
+    seed_everything,
 )
 
 
-def train_one_epoch(model, loader, criterion, optimizer, scaler, scheduler, device, cfg):
+def train_one_epoch(
+    model, loader, criterion, optimizer, scaler, scheduler, device, cfg
+):
     model.train()
     losses = AverageMeter()
     pbar = tqdm(loader, desc="train", leave=False)
@@ -73,14 +81,21 @@ def validate(model, loader, criterion, device, cfg):
 
     probs, gts = np.concatenate(probs), np.concatenate(gts)
     preds = probs.argmax(1)
-    return (losses.avg, accuracy_score(gts, preds),
-            f1_score(gts, preds, average="macro"), probs, gts)
+    return (
+        losses.avg,
+        accuracy_score(gts, preds),
+        f1_score(gts, preds, average="macro"),
+        probs,
+        gts,
+    )
 
 
 def run_fold(cfg, fold: int = 0):
     seed_everything(cfg.seed + fold)
     device = get_device()
-    print(f"device={device} | {torch.cuda.get_device_name(0) if device.type == 'cuda' else 'cpu'}")
+    print(
+        f"device={device} | {torch.cuda.get_device_name(0) if device.type == 'cuda' else 'cpu'}"
+    )
 
     df = build_dataframe(cfg)
     dist = df.target.value_counts().sort_index().to_dict()
@@ -96,9 +111,13 @@ def run_fold(cfg, fold: int = 0):
         weights = torch.tensor(w, dtype=torch.float32, device=device)
         print(f"class weights: {np.round(w, 3)}")
     criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=cfg.label_smoothing)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
+    )
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer, max_lr=cfg.lr, epochs=cfg.epochs,
+        optimizer,
+        max_lr=cfg.lr,
+        epochs=cfg.epochs,
         steps_per_epoch=max(len(train_dl) // cfg.grad_accum, 1),
     )
     scaler = torch.amp.GradScaler("cuda", enabled=cfg.amp)
@@ -108,20 +127,33 @@ def run_fold(cfg, fold: int = 0):
     best_path = ckpt_dir / f"{cfg.exp_name}_f{fold}_best.pt"
 
     # This is what makes a Colab disconnect cost one epoch instead of the whole run.
-    start_epoch, best_score = load_checkpoint(last_path, model, optimizer, scaler, device)
+    start_epoch, best_score = load_checkpoint(
+        last_path, model, optimizer, scaler, device
+    )
     bad_epochs = 0
 
     for epoch in range(start_epoch, cfg.epochs):
-        tr_loss = train_one_epoch(model, train_dl, criterion, optimizer, scaler, scheduler, device, cfg)
+        tr_loss = train_one_epoch(
+            model, train_dl, criterion, optimizer, scaler, scheduler, device, cfg
+        )
         va_loss, acc, f1, probs, gts = validate(model, valid_dl, criterion, device, cfg)
-        print(f"epoch {epoch+1}/{cfg.epochs} | train {tr_loss:.4f} | val {va_loss:.4f} | acc {acc:.4f} | f1 {f1:.4f}")
+        print(
+            f"epoch {epoch+1}/{cfg.epochs} | train {tr_loss:.4f} | val {va_loss:.4f} | acc {acc:.4f} | f1 {f1:.4f}"
+        )
 
-        append_run_log(cfg.out_dir, {
-            "exp": cfg.exp_name, "fold": fold, "epoch": epoch + 1,
-            "train_loss": round(tr_loss, 5), "val_loss": round(va_loss, 5),
-            "acc": round(acc, 5), "f1": round(f1, 5),
-            "gap": round(tr_loss - va_loss, 5),  # negative & widening = overfitting
-        })
+        append_run_log(
+            cfg.out_dir,
+            {
+                "exp": cfg.exp_name,
+                "fold": fold,
+                "epoch": epoch + 1,
+                "train_loss": round(tr_loss, 5),
+                "val_loss": round(va_loss, 5),
+                "acc": round(acc, 5),
+                "f1": round(f1, 5),
+                "gap": round(tr_loss - va_loss, 5),  # negative & widening = overfitting
+            },
+        )
 
         # Select on the COMPETITION metric, not accuracy. With this much imbalance
         # the best-accuracy epoch and the best-macro-F1 epoch are often different.

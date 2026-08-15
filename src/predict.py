@@ -1,4 +1,5 @@
 """Inference -> submission.csv. Adjust column names once the comp format is known."""
+
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +24,9 @@ def predict(cfg, ckpt_paths, test_df, tta=True):
     """
     device = get_device()
     ds = ImageDataset(test_df, build_transforms(cfg.img_size, False), has_label=False)
-    dl = DataLoader(ds, batch_size=cfg.batch_size * 2, shuffle=False, num_workers=cfg.num_workers)
+    dl = DataLoader(
+        ds, batch_size=cfg.batch_size * 2, shuffle=False, num_workers=cfg.num_workers
+    )
 
     if not ckpt_paths:
         raise FileNotFoundError("no checkpoints found - train a fold first")
@@ -43,7 +46,9 @@ def predict(cfg, ckpt_paths, test_df, tta=True):
             out.append(p.float().cpu().numpy())
         probs += np.concatenate(out) / len(ckpt_paths)
 
-    print(f"predicted with {len(ckpt_paths)} checkpoint(s), TTA={'on' if tta else 'off'}")
+    print(
+        f"predicted with {len(ckpt_paths)} checkpoint(s), TTA={'on' if tta else 'off'}"
+    )
     return probs
 
 
@@ -52,14 +57,19 @@ def make_submission(cfg, probs, test_df, out_name="submission.csv"):
 
     Labels were never remapped (they are already 0-3), so argmax is the label.
     """
-    sub = pd.DataFrame({
-        cfg.image_col: test_df["filename"].values,
-        cfg.label_col: probs.argmax(1).astype(int),
-    })
+    sub = pd.DataFrame(
+        {
+            cfg.image_col: test_df["filename"].values,
+            cfg.label_col: probs.argmax(1).astype(int),
+        }
+    )
     out_path = Path(cfg.out_dir) / "submissions" / out_name
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sub.to_csv(out_path, index=False)
 
     print(f"wrote {out_path} ({len(sub)} rows)")
-    print("predicted class distribution:\n", sub[cfg.label_col].value_counts().sort_index())
+    print(
+        "predicted class distribution:\n",
+        sub[cfg.label_col].value_counts().sort_index(),
+    )
     return sub

@@ -4,6 +4,7 @@ Supports two common Kaggle layouts, switched by cfg.data_mode:
   "folder" -> data_dir/train/<class_name>/*.jpg
   "csv"    -> data_dir/train.csv listing image ids and labels
 """
+
 from pathlib import Path
 
 import albumentations as A
@@ -20,20 +21,26 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def build_transforms(img_size: int, train: bool):
     if train:
-        return A.Compose([
-            A.RandomResizedCrop(size=(img_size, img_size), scale=(0.7, 1.0)),
-            A.HorizontalFlip(p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.5),
-            A.RandomBrightnessContrast(p=0.5),
-            A.CoarseDropout(p=0.3),
+        return A.Compose(
+            [
+                A.RandomResizedCrop(size=(img_size, img_size), scale=(0.7, 1.0)),
+                A.HorizontalFlip(p=0.5),
+                A.ShiftScaleRotate(
+                    shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.5
+                ),
+                A.RandomBrightnessContrast(p=0.5),
+                A.CoarseDropout(p=0.3),
+                A.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+                ToTensorV2(),
+            ]
+        )
+    return A.Compose(
+        [
+            A.Resize(img_size, img_size),
             A.Normalize(IMAGENET_MEAN, IMAGENET_STD),
             ToTensorV2(),
-        ])
-    return A.Compose([
-        A.Resize(img_size, img_size),
-        A.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-        ToTensorV2(),
-    ])
+        ]
+    )
 
 
 class ImageDataset(Dataset):
@@ -75,7 +82,9 @@ def _images_root(cfg) -> Path:
     for p in data_dir.rglob("*.jpg"):
         counts[p.parent] = counts.get(p.parent, 0) + 1
     if not counts:
-        raise FileNotFoundError(f"no .jpg files anywhere under {data_dir} - did images.zip unzip?")
+        raise FileNotFoundError(
+            f"no .jpg files anywhere under {data_dir} - did images.zip unzip?"
+        )
 
     root = max(counts, key=counts.get)
     print(f"images root: {root} ({counts[root]} files)")
@@ -95,16 +104,22 @@ def build_dataframe(cfg) -> pd.DataFrame:
 
     missing = [c for c in (cfg.image_col, cfg.label_col) if c not in raw.columns]
     if missing:
-        raise KeyError(f"{cfg.train_csv} is missing {missing}; it has {list(raw.columns)}")
+        raise KeyError(
+            f"{cfg.train_csv} is missing {missing}; it has {list(raw.columns)}"
+        )
 
-    df = pd.DataFrame({
-        "path": [img_root / f for f in raw[cfg.image_col]],
-        "target": raw[cfg.label_col].astype(int),
-    })
+    df = pd.DataFrame(
+        {
+            "path": [img_root / f for f in raw[cfg.image_col]],
+            "target": raw[cfg.label_col].astype(int),
+        }
+    )
 
     absent = [p for p in df.path[:50] if not p.exists()]
     if absent:
-        raise FileNotFoundError(f"listed in {cfg.train_csv} but not on disk: {absent[:3]}")
+        raise FileNotFoundError(
+            f"listed in {cfg.train_csv} but not on disk: {absent[:3]}"
+        )
 
     skf = StratifiedKFold(n_splits=cfg.n_folds, shuffle=True, random_state=cfg.seed)
     df["fold"] = -1
@@ -120,10 +135,12 @@ def build_test_dataframe(cfg) -> pd.DataFrame:
     data_dir = Path(cfg.data_dir)
     img_root = _images_root(cfg)
     raw = pd.read_csv(data_dir / cfg.test_csv)
-    return pd.DataFrame({
-        "path": [img_root / f for f in raw[cfg.image_col]],
-        "filename": raw[cfg.image_col],
-    })
+    return pd.DataFrame(
+        {
+            "path": [img_root / f for f in raw[cfg.image_col]],
+            "filename": raw[cfg.image_col],
+        }
+    )
 
 
 def class_weights(df: pd.DataFrame, num_classes: int):
@@ -134,7 +151,7 @@ def class_weights(df: pd.DataFrame, num_classes: int):
     rare ones, which macro-averaging punishes hard.
     """
     counts = np.bincount(df["target"], minlength=num_classes).astype(float)
-    counts[counts == 0] = 1.0            # never divide by zero on an absent class
+    counts[counts == 0] = 1.0  # never divide by zero on an absent class
     w = counts.sum() / (num_classes * counts)
     return w / w.mean()
 
@@ -146,7 +163,15 @@ def build_loaders(cfg, df: pd.DataFrame, fold: int):
     train_ds = ImageDataset(tr, build_transforms(cfg.img_size, True))
     valid_ds = ImageDataset(va, build_transforms(cfg.img_size, False))
 
-    common = dict(num_workers=cfg.num_workers, pin_memory=True, persistent_workers=cfg.num_workers > 0)
-    train_dl = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, **common)
-    valid_dl = DataLoader(valid_ds, batch_size=cfg.batch_size * 2, shuffle=False, **common)
+    common = dict(
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+        persistent_workers=cfg.num_workers > 0,
+    )
+    train_dl = DataLoader(
+        train_ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, **common
+    )
+    valid_dl = DataLoader(
+        valid_ds, batch_size=cfg.batch_size * 2, shuffle=False, **common
+    )
     return train_dl, valid_dl

@@ -1,4 +1,5 @@
 """Small helpers: seeding, checkpointing, metric tracking."""
+
 import json
 import os
 import random
@@ -78,7 +79,9 @@ def save_oof(out_dir: Path, exp_name: str, fold: int, probs, targets):
     """
     oof_dir = Path(out_dir) / "oof"
     oof_dir.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(oof_dir / f"{exp_name}_f{fold}.npz", probs=probs, targets=targets)
+    np.savez_compressed(
+        oof_dir / f"{exp_name}_f{fold}.npz", probs=probs, targets=targets
+    )
 
 
 def load_oof(out_dir: Path, exp_name: str, fold: int):

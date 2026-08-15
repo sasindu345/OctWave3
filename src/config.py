@@ -1,4 +1,5 @@
 """All tunable settings in one place. Edit this, not the training code."""
+
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
@@ -25,31 +26,33 @@ class Config:
     # --- model ---
     model_name: str = "tf_efficientnet_b0"  # any timm model
     pretrained: bool = True
-    num_classes: int = 4    # 0 neither, 1 Tom, 2 Jerry, 3 both
+    num_classes: int = 4  # 0 neither, 1 Tom, 2 Jerry, 3 both
     drop_rate: float = 0.3  # only 2680 training images - regularise hard
 
     # --- data ---
     img_size: int = 224
-    batch_size: int = 32        # T4 (16GB): b0@224 ~64, b3@300 ~24, b4@380 ~12
-    num_workers: int = 2        # Colab only gives ~2 usable CPU cores
+    batch_size: int = 32  # T4 (16GB): b0@224 ~64, b3@300 ~24, b4@380 ~12
+    num_workers: int = 2  # Colab only gives ~2 usable CPU cores
     n_folds: int = 5
     train_folds: list = field(default_factory=lambda: [0])  # [0,1,2,3,4] for full CV
 
     # --- training ---
     # The competition metric is MACRO F1 on a severely imbalanced training set.
     # Both settings below exist because of that, and matter more than the backbone.
-    metric: str = "macro_f1"     # what early stopping and "best" are judged on
-    class_weights: bool = True   # inverse-frequency weights so rare classes count
+    metric: str = "macro_f1"  # what early stopping and "best" are judged on
+    class_weights: bool = True  # inverse-frequency weights so rare classes count
     epochs: int = 12
     lr: float = 3e-4
     weight_decay: float = 1e-4
     label_smoothing: float = 0.05  # train labels are noisy; test labels are clean
-    amp: bool = True            # mixed precision - roughly 2x faster on T4
+    amp: bool = True  # mixed precision - roughly 2x faster on T4
     grad_accum: int = 1
     early_stop_patience: int = 5
 
     def to_dict(self):
-        return {k: str(v) if isinstance(v, Path) else v for k, v in asdict(self).items()}
+        return {
+            k: str(v) if isinstance(v, Path) else v for k, v in asdict(self).items()
+        }
 
 
 cfg = Config()
