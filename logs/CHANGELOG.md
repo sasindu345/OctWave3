@@ -8,8 +8,17 @@ Code and structure changes, newest first. One line each — keep it cheap to mai
 - Competition opened: `oct-wave-3-0-kaggle-challenge-02`. Slug set in notebook 01.
 - Added section 5b "Inspect the data" to notebook 01 — prints layout, class counts,
   imbalance ratio, image shapes and submission columns. Tested on a synthetic dataset.
-- Still UNKNOWN until 5b runs: class count, data layout, image size, metric,
-  submission format.
+- Competition details received (Tom & Jerry character classification). Configured:
+  4 classes, metric **macro F1**, flat `images/` dir + train.csv/test.csv,
+  submission `filename,appearance`.
+- `train.py` now selects the best epoch on macro F1 (was accuracy) and applies
+  inverse-frequency class weights; `label_smoothing=0.05` for noisy train labels.
+- `dataset.py`: `build_test_dataframe()` and `class_weights()` added; loader rewritten
+  for the flat-images layout.
+- Verified end-to-end on a synthetic replica (2680 train / 200 test, 4 imbalanced
+  classes): trains, writes valid `filename,appearance` submission, saves OOF.
+- Still UNKNOWN until cell 5b runs on real data: actual class distribution and
+  image resolution.
 - Added `results/` (tracked) + Colab push cell so run logs and figures come back to git.
 
 ## 2026-08-15

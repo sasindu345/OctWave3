@@ -57,14 +57,30 @@ class ImageDataset(Dataset):
         return img, self.labels[i]
 
 
+_IMG_ROOT_CACHE = {}
+
+
 def _images_root(cfg) -> Path:
-    """images.zip may unzip to data/images/ or straight into data/. Find which."""
+    """Find the directory holding the images.
+
+    Not hardcoded because images.zip nests unpredictably - on this competition it
+    lands in data/images/images/, but a re-unzip can flatten it to data/images/.
+    Whichever directory holds the most .jpg files is the right one.
+    """
     data_dir = Path(cfg.data_dir)
-    for cand in (data_dir / cfg.images_dir, data_dir):
-        if cand.is_dir() and any(cand.glob("*.jpg")):
-            return cand
-    raise FileNotFoundError(
-        f"no .jpg files in {data_dir/cfg.images_dir} or {data_dir} - did images.zip unzip?")
+    if data_dir in _IMG_ROOT_CACHE:
+        return _IMG_ROOT_CACHE[data_dir]
+
+    counts = {}
+    for p in data_dir.rglob("*.jpg"):
+        counts[p.parent] = counts.get(p.parent, 0) + 1
+    if not counts:
+        raise FileNotFoundError(f"no .jpg files anywhere under {data_dir} - did images.zip unzip?")
+
+    root = max(counts, key=counts.get)
+    print(f"images root: {root} ({counts[root]} files)")
+    _IMG_ROOT_CACHE[data_dir] = root
+    return root
 
 
 def build_dataframe(cfg) -> pd.DataFrame:
