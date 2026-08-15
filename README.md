@@ -2,6 +2,13 @@
 
 Training code for an image classification competition, run on Google Colab (T4 GPU).
 
+| | |
+|---|---|
+| **Train** (needs T4 GPU) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sasindu345/OctWave3/blob/main/notebooks/01_train_colab.ipynb) |
+| **Analyse** (CPU is fine) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sasindu345/OctWave3/blob/main/notebooks/02_analysis.ipynb) |
+
+Click a badge to open that notebook in Colab. Train first, then analyse.
+
 ## Structure
 
 ```

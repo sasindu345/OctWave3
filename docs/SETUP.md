@@ -6,7 +6,7 @@
 git add .
 git commit -m "initial project structure"
 gh repo create OctWave3 --private --source=. --push
-# or: git remote add origin https://github.com/<user>/OctWave3.git && git push -u origin main
+# or: git remote add origin https://github.com/sasindu345/OctWave3.git && git push -u origin main
 ```
 
 ## 2. Open the notebook in Colab
@@ -14,12 +14,12 @@ gh repo create OctWave3 --private --source=. --push
 Any of these work:
 
 - **URL shortcut (fastest):**
-  `https://colab.research.google.com/github/<user>/OctWave3/blob/main/notebooks/01_train_colab.ipynb`
+  `https://colab.research.google.com/github/sasindu345/OctWave3/blob/main/notebooks/01_train_colab.ipynb`
 - **From Colab:** `File → Open notebook → GitHub tab → paste repo URL`.
   For a private repo, click *Include private repos* and authorize Colab once.
 - **Badge:** add this to the README for one-click access:
   ```markdown
-  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/<user>/OctWave3/blob/main/notebooks/01_train_colab.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sasindu345/OctWave3/blob/main/notebooks/01_train_colab.ipynb)
   ```
 
 ## 3. Turn on the GPU
@@ -51,7 +51,7 @@ Store it as a Colab Secret named `GH_TOKEN` and clone with:
 ```python
 from google.colab import userdata
 TOKEN = userdata.get('GH_TOKEN')
-REPO_URL = f'https://{TOKEN}@github.com/<user>/OctWave3.git'
+REPO_URL = f'https://{TOKEN}@github.com/sasindu345/OctWave3.git'
 ```
 
 Never paste a token into a notebook cell — it gets committed.
