@@ -8,7 +8,15 @@ Always record macro F1, never accuracy — accuracy can look fine while a rare c
 
 | # | Date | Model | Img | BS | LR | Epochs | CV (macro F1) | LB | Notes |
 |---|------|-------|-----|----|----|--------|---------------|----|-------|
-| exp01 | — | tf_efficientnet_b0 | 224 | 32 | 3e-4 | 12 | — | — | baseline, fold 0, class-weighted |
+| — | 2026-08-16 | all-zeros (sample_submission) | — | — | — | — | — | **0.1521** | naive floor |
+| exp01 | 2026-08-16 | tf_efficientnet_b0 | 224 | 32 | 3e-4 | 12 | **0.6818** (fold 0) | **0.7251** | baseline, class-weighted |
+
+**Real class distribution** (from train.csv, 2680 rows):
+`{0 neither: 368 (13.7%), 1 Tom: 1252 (46.7%), 2 Jerry: 841 (31.4%), 3 both: 219 (8.2%)}`
+Imbalance is 5.7x — moderate, not severe. Class weights `[1.18, 0.35, 0.51, 1.97]`.
+
+**LB (0.725) > CV (0.682).** Expected: train labels are noisy, test labels are clean, so
+validation understates true performance. CV is a conservative, usable proxy.
 
 ## Ideas backlog — ordered for a 1-day deadline
 

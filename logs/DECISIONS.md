@@ -22,13 +22,30 @@ Format (copy this block):
 
 ---
 
-## D00 — Is the pipeline correct end to end? (template example, not a real result)
+## D01 — Is the pipeline correct end to end?
 
-- **Date:** —
-- **Compared:** —
-- **VERDICT:** UNKNOWN — no runs yet, competition has not started
-- **Next:** once data is available, run a 2-epoch smoke test on fold 0 and confirm
-  train loss decreases, a checkpoint appears in Drive, and an OOF `.npz` is written.
+- **Date:** 2026-08-16
+- **Evidence:** exp01 trained 12 epochs on fold 0, submitted, scored on the LB.
+- **CV macro F1:** 0.6818 (fold 0, epoch 10) · **LB:** 0.7251 · **all-zeros floor:** 0.1521
+- **VERDICT:** CONFIRMED — pipeline works end to end.
+- **Reasoning:** LB sits well above the naive floor, and above CV, which is expected
+  given noisy train labels vs clean test labels. CV is conservative but usable.
+- **Next:** D02 — does overfitting after epoch ~9 cost us anything?
+
+## D02 — Is exp01 overfitting?
+
+- **Date:** 2026-08-16
+- **Evidence:** run_log fold 0, epochs 1-12.
+- **Train loss:** falls throughout, 0.699 (e8) → 0.578 (e12)
+- **Valid loss:** bottoms at 1.1194 (e9), then rises → 1.1431 (e12)
+- **Macro F1:** plateaus 0.668 → 0.682, best 0.6818 at e10
+- **Gap (train-val):** widens −0.465 (e8) → −0.565 (e12)
+- **VERDICT:** MILD overfitting, onset ~epoch 9.
+- **Reasoning:** the classic signature — training loss still falling while validation
+  loss turns upward. But macro F1 plateaus rather than collapsing, so the cost is
+  small. Early stopping did not fire because F1 kept inching up.
+- **Next:** the fix is more data through the model (5 folds + ensemble), not fewer
+  epochs. Revisit epochs only if 5-fold shows the same turn.
 
 ---
 
