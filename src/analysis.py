@@ -428,14 +428,15 @@ def evidence_report(cfg, exp_name, folds, classes, run_log=None, out_png=None):
     probs, targets = load_oof(cfg.out_dir, exp_name, folds[0])
     fig, axes = plt.subplots(2, 2, figsize=(12, 9))
 
+    metric = getattr(cfg, "metric", "macro_f1")
     if run_log is not None:
         plot_learning_curves(run_log, exp_name, ax=axes[0, 0])
-    plot_fold_box([cv_summary(cfg.out_dir, exp_name, folds)], ax=axes[0, 1])
+    plot_fold_box([cv_summary(cfg.out_dir, exp_name, folds, metric=metric)], ax=axes[0, 1])
     plot_confusion(targets, probs, classes, ax=axes[1, 0])
     plot_reliability(targets, probs, ax=axes[1, 1])
 
-    ci = bootstrap_ci(targets, probs)
-    fig.suptitle(f"{exp_name} - accuracy {ci['point']:.4f} "
+    ci = bootstrap_ci(targets, probs, metric=metric)
+    fig.suptitle(f"{exp_name} - {metric} {ci['point']:.4f} "
                  f"[{ci['lo']:.4f}, {ci['hi']:.4f}] 95% CI",
                  fontsize=12, fontweight="bold")
     fig.tight_layout()

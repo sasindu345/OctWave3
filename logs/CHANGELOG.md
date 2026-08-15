@@ -3,6 +3,18 @@
 Code and structure changes, newest first. One line each — keep it cheap to maintain.
 (For run results, use [EXPERIMENTS.md](EXPERIMENTS.md) instead.)
 
+## 2026-08-16 (Notebook & Validation Upgrades)
+
+- Added Test-Time Augmentation (TTA, horizontal flip averaging) to `src/predict.py` for variance-reduction accuracy gain without capacity inflation.
+- Upgraded `notebooks/01_train_colab.ipynb`:
+  - Section 6: Configured 5-fold training by default (`cfg.train_folds = [0, 1, 2, 3, 4]`).
+  - Section 7: Multi-fold training loop with automated OOF CV summary (`mean ± std`).
+  - Section 8: Visual learning curves + integrated `overfit_check()` generalization diagnostic.
+  - Section 9: TTA inference and automated submission integrity validation checks.
+- Upgraded `notebooks/02_analysis.ipynb`: switched all metrics to competition macro F1, updated class names, and added multi-fold box plot support.
+- Updated `src/analysis.py`: `evidence_report()` now dynamically formats metrics and labels based on `cfg.metric`.
+- Added [docs/NOTEBOOK_GUIDE.md](../docs/NOTEBOOK_GUIDE.md) covering the 5-fold training workflow, overfitting guardrails, and submission pipeline.
+
 ## 2026-08-16 (later)
 
 - exp01 baseline complete: CV macro F1 0.6818 (fold 0), **LB 0.7251**. All-zeros

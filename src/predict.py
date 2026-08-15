@@ -13,11 +13,20 @@ from src.utils import get_device
 
 
 @torch.no_grad()
-def predict(cfg, ckpt_paths, test_df):
-    """Averages softmax probabilities over one or more checkpoints (fold ensemble)."""
+def predict(cfg, ckpt_paths, test_df, tta=True):
+    """Averages softmax probabilities over checkpoints, and optionally over flips.
+
+    Two kinds of averaging, both variance reduction rather than added capacity -
+    which is why neither can overfit more than a single model:
+      - fold ensemble: average the 5 models trained on different splits
+      - TTA: average each image with its horizontal mirror
+    """
     device = get_device()
     ds = ImageDataset(test_df, build_transforms(cfg.img_size, False), has_label=False)
     dl = DataLoader(ds, batch_size=cfg.batch_size * 2, shuffle=False, num_workers=cfg.num_workers)
+
+    if not ckpt_paths:
+        raise FileNotFoundError("no checkpoints found - train a fold first")
 
     probs = np.zeros((len(ds), cfg.num_classes), dtype=np.float32)
     for path in ckpt_paths:
@@ -26,9 +35,15 @@ def predict(cfg, ckpt_paths, test_df):
         model.eval()
         out = []
         for images in tqdm(dl, desc=Path(path).stem, leave=False):
+            images = images.to(device)
             with torch.autocast("cuda", enabled=cfg.amp):
-                out.append(model(images.to(device)).softmax(1).float().cpu().numpy())
+                p = model(images).softmax(1)
+                if tta:
+                    p = (p + model(torch.flip(images, dims=[3])).softmax(1)) / 2
+            out.append(p.float().cpu().numpy())
         probs += np.concatenate(out) / len(ckpt_paths)
+
+    print(f"predicted with {len(ckpt_paths)} checkpoint(s), TTA={'on' if tta else 'off'}")
     return probs
 
 
