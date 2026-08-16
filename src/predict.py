@@ -9,8 +9,15 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from src.dataset import ImageDataset, build_transforms
-from src.model import build_model
+from src.model import build_model, multilabel_to_probs4
 from src.utils import get_device
+
+
+def _to_probs4(cfg, logits):
+    """Both heads emit 4-class probabilities, so their outputs can be blended."""
+    if getattr(cfg, "head", "softmax") == "multilabel":
+        return multilabel_to_probs4(logits.float())
+    return logits.softmax(1)
 
 
 @torch.no_grad()
@@ -40,9 +47,10 @@ def predict(cfg, ckpt_paths, test_df, tta=True):
         for images in tqdm(dl, desc=Path(path).stem, leave=False):
             images = images.to(device)
             with torch.autocast("cuda", enabled=cfg.amp):
-                p = model(images).softmax(1)
+                p = _to_probs4(cfg, model(images))
                 if tta:
-                    p = (p + model(torch.flip(images, dims=[3])).softmax(1)) / 2
+                    flipped = _to_probs4(cfg, model(torch.flip(images, dims=[3])))
+                    p = (p + flipped) / 2
             out.append(p.float().cpu().numpy())
         probs += np.concatenate(out) / len(ckpt_paths)
 

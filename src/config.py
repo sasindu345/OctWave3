@@ -24,6 +24,11 @@ class Config:
     label_col: str = "appearance"
 
     # --- model ---
+    # head: "softmax"    -> 4-way CrossEntropy (the champion)
+    #       "multilabel" -> 2 sigmoids [Tom present, Jerry present], mapped back to
+    #                       4 classes. Pools class 3 with classes 1 and 2 during
+    #                       training instead of treating it as its own rare class.
+    head: str = "softmax"
     model_name: str = "tf_efficientnet_b0"  # any timm model
     pretrained: bool = True
     num_classes: int = 4  # 0 neither, 1 Tom, 2 Jerry, 3 both

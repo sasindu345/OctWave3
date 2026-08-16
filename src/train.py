@@ -15,7 +15,12 @@ from tqdm.auto import tqdm
 
 from src.config import cfg as default_cfg
 from src.dataset import build_dataframe, build_loaders, class_weights
-from src.model import build_model
+from src.model import (
+    build_model,
+    multilabel_pos_weight,
+    multilabel_to_probs4,
+    targets_to_multilabel,
+)
 from src.utils import (
     AverageMeter,
     append_run_log,
@@ -40,7 +45,9 @@ def train_one_epoch(
         targets = targets.to(device, non_blocking=True)
 
         with torch.autocast("cuda", enabled=cfg.amp):
-            loss = criterion(model(images), targets) / cfg.grad_accum
+            out = model(images)
+            y = targets_to_multilabel(targets) if cfg.head == "multilabel" else targets
+            loss = criterion(out, y) / cfg.grad_accum
 
         scaler.scale(loss).backward()
         if (step + 1) % cfg.grad_accum == 0:
@@ -74,9 +81,14 @@ def validate(model, loader, criterion, device, cfg):
         targets = targets.to(device, non_blocking=True)
         with torch.autocast("cuda", enabled=cfg.amp):
             logits = model(images)
-            loss = criterion(logits, targets)
+            if cfg.head == "multilabel":
+                loss = criterion(logits, targets_to_multilabel(targets))
+                p = multilabel_to_probs4(logits.float())
+            else:
+                loss = criterion(logits, targets)
+                p = logits.softmax(1)
         losses.update(loss.item(), images.size(0))
-        probs.append(logits.softmax(1).float().cpu().numpy())
+        probs.append(p.float().cpu().numpy())
         gts.append(targets.cpu().numpy())
 
     probs, gts = np.concatenate(probs), np.concatenate(gts)
@@ -105,12 +117,21 @@ def run_fold(cfg, fold: int = 0):
 
     model = build_model(cfg).to(device)
 
-    weights = None
-    if cfg.class_weights:
-        w = class_weights(df[df.fold != fold], cfg.num_classes)
-        weights = torch.tensor(w, dtype=torch.float32, device=device)
-        print(f"class weights: {np.round(w, 3)}")
-    criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=cfg.label_smoothing)
+    tr_df = df[df.fold != fold]
+    if cfg.head == "multilabel":
+        pw = multilabel_pos_weight(tr_df, device) if cfg.class_weights else None
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pw)
+        print(f"head=multilabel | pos_weight (tom, jerry): "
+              f"{None if pw is None else np.round(pw.cpu().numpy(), 3)}")
+    else:
+        weights = None
+        if cfg.class_weights:
+            w = class_weights(tr_df, cfg.num_classes)
+            weights = torch.tensor(w, dtype=torch.float32, device=device)
+            print(f"class weights: {np.round(w, 3)}")
+        criterion = nn.CrossEntropyLoss(
+            weight=weights, label_smoothing=cfg.label_smoothing
+        )
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
     )
