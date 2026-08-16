@@ -9,7 +9,10 @@ Always record macro F1, never accuracy — accuracy can look fine while a rare c
 | # | Date | Model | Img | BS | LR | Epochs | CV (macro F1) | LB | Notes |
 |---|------|-------|-----|----|----|--------|---------------|----|-------|
 | — | 2026-08-16 | all-zeros (sample_submission) | — | — | — | — | — | **0.1521** | naive floor |
-| exp01 | 2026-08-16 | tf_efficientnet_b0 | 224 | 32 | 3e-4 | 12 | **0.6818** (fold 0) | **0.7251** | baseline, class-weighted |
+| exp01 | 2026-08-16 | tf_efficientnet_b0 | 224 | 32 | 3e-4 | 12 | 0.6818 (fold 0) | 0.7251 | baseline, class-weighted |
+| exp02 | 2026-08-16 | tf_efficientnet_b0 | 224 | 32 | 3e-4 | 12 | 0.6419 ± 0.0153 | **0.8123** | 5-fold + TTA — **champion, protected** |
+| exp03 | 2026-08-16 | tf_efficientnet_b0 e18 | 224 | 32 | 3e-4 | 18 | 0.6556 ± 0.0236 | *(argmax not submitted)* | +0.014 < noise floor; `_mult` variant scored 0.7466 |
+| **exp05** | 2026-08-16 | **b0 multilabel head** | 224 | 32 | 3e-4 | 12 | **0.6877 ± 0.0307** | *pending* | **ADOPT** — 5/5 folds, CI [+0.026, +0.066], McNemar p=0.0000 |
 
 **Real class distribution** (from train.csv, 2680 rows):
 `{0 neither: 368 (13.7%), 1 Tom: 1252 (46.7%), 2 Jerry: 841 (31.4%), 3 both: 219 (8.2%)}`

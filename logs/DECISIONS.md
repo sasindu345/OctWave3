@@ -85,6 +85,39 @@ Format (copy this block):
   Motivates the two-sigmoid multilabel head (exp05), where class 0 requires both
   detectors negative and class 3 requires both positive.
 
+## D06 — exp05 multilabel vs champion: ADOPT (first proven gain in the project)
+
+- **Date:** 2026-08-16
+- **Compared:** `exp02_5fold_b0` (champion) vs `exp05_multilabel_b0`, all 5 folds, same splits
+- **Champion CV:** 0.6419 ± 0.0153 · **exp05 CV:** 0.6877 ± 0.0307
+- **Per-fold delta:** +0.0471, +0.0247, +0.0445, +0.0866, +0.0264 → **5/5 folds improved**
+- **Paired bootstrap:** diff **+0.0453**, 95% CI **[+0.0258, +0.0659]** (excludes 0), P(B better) = 1.000
+- **McNemar:** 311 flips to exp05, 157 to champion, **p = 0.0000**
+- **Overfit check:** MILD on all 5 folds, macro F1 still improving after the val-loss turn
+- **VERDICT: ADOPT** — the only change so far to clear the 0.018 noise floor (2.5x it)
+- **Chart:** `results/figures/exp05_multilabel_b0_training.png`
+
+### But the mechanism was NOT what was predicted
+
+Row-normalised recall, exp03 (softmax) → exp05 (multilabel):
+
+| class | softmax | multilabel | change |
+|---|---|---|---|
+| 0 neither | 0.61 | **0.54** | −0.07 |
+| 1 Tom | 0.78 | **0.86** | **+0.08** |
+| 2 Jerry | 0.78 | **0.86** | **+0.08** |
+| 3 both | 0.53 | **0.46** | −0.07 |
+
+The hypothesis was that pooling would fix the joint classes (0 and 3). It did the
+opposite: single-character recall improved sharply, joint-class recall fell. Macro F1
+still rose +0.045, which means **precision** on classes 0 and 3 must have improved
+enough to outweigh the recall loss — consistent with the softmax model massively
+over-predicting them (39.4% predicted class 0 vs a 13.7% prior).
+
+**Consequence:** the two models have opposite error profiles — champion trades
+precision for recall on rare classes, multilabel does the reverse. That is the
+profile that ensembles well. Check the oracle ceiling before assuming it.
+
 ---
 
 ## Standing decisions
