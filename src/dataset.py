@@ -157,8 +157,19 @@ def class_weights(df: pd.DataFrame, num_classes: int):
 
 
 def build_loaders(cfg, df: pd.DataFrame, fold: int):
-    tr = df[df.fold != fold].reset_index(drop=True)
+    tr = df[df.fold != fold]
     va = df[df.fold == fold].reset_index(drop=True)
+
+    # Label cleaning applies to TRAINING rows only. Validation must stay byte-identical
+    # across experiments, otherwise decide() would be comparing different test sets.
+    drop_file = getattr(cfg, "drop_idx_file", "")
+    if drop_file:
+        drop = set(np.load(drop_file).tolist())
+        before = len(tr)
+        tr = tr[~tr.index.isin(drop)]
+        print(f"fold {fold}: dropped {before - len(tr)} suspect labels from training "
+              f"({before} -> {len(tr)}); validation untouched at {len(va)}")
+    tr = tr.reset_index(drop=True)
 
     train_ds = ImageDataset(tr, build_transforms(cfg.img_size, True))
     valid_ds = ImageDataset(va, build_transforms(cfg.img_size, False))

@@ -23,6 +23,11 @@ class Config:
     image_col: str = "filename"
     label_col: str = "appearance"
 
+    # Path to a .npy of row indices judged mislabeled (see src/diagnostics.py).
+    # They are dropped from the TRAINING split only - never from validation, or the
+    # folds would differ between experiments and no comparison would be valid.
+    drop_idx_file: str = ""
+
     # --- model ---
     # head: "softmax"    -> 4-way CrossEntropy (the champion)
     #       "multilabel" -> 2 sigmoids [Tom present, Jerry present], mapped back to

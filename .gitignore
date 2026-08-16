@@ -3,9 +3,6 @@ data/*
 !data/.gitkeep
 outputs/*                       # everything here lives in Drive, not git
 !outputs/.gitkeep
-
-# results/ IS tracked - it is the small stuff that travels back from Colab
-# (run logs + figures, a few hundred KB). Big files stay in Drive.
 *.pt
 *.pth
 *.ckpt
@@ -26,3 +23,16 @@ venv/
 
 # os
 .DS_Store
+
+# ---------------------------------------------------------------------------
+# results/artifacts/ IS tracked. Must come LAST - git uses last-match-wins, so
+# these negations have to sit below the *.csv / *.npy ignores above.
+#
+# OOF predictions (~10KB/fold) and test probabilities (~45KB each) live here so
+# ANY Colab account can reproduce every comparison and every blend without
+# access to the Drive that trained them. Only 20MB checkpoints stay in Drive.
+# ---------------------------------------------------------------------------
+!results/artifacts/
+!results/artifacts/*.npz
+!results/artifacts/*.npy
+!results/artifacts/*.csv
