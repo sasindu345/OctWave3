@@ -93,6 +93,36 @@ def load_oof(out_dir: Path, exp_name: str, fold: int):
     return d["probs"], d["targets"]
 
 
+def merge_run_log(src: Path, dst: Path):
+    """Merge a run log into another, keyed by (exp, fold, epoch).
+
+    Colab's Drive copy only holds what that session appended. Copying it straight
+    over the repo's copy silently deletes every earlier experiment's history -
+    which has already happened twice. Always merge, never overwrite.
+    """
+    src, dst = Path(src), Path(dst)
+    seen, out = set(), []
+    for path in (dst, src):                     # dst first so its ordering wins
+        if not path.exists():
+            continue
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            key = (rec.get("exp"), rec.get("fold"), rec.get("epoch"))
+            if key not in seen:
+                seen.add(key)
+                out.append(rec)
+    out.sort(key=lambda r: (str(r.get("exp")), r.get("fold", 0), r.get("epoch", 0)))
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with open(dst, "w") as f:
+        for rec in out:
+            f.write(json.dumps(rec) + "\n")
+    exps = sorted({r.get("exp") for r in out})
+    print(f"run_log merged: {len(out)} rows across {len(exps)} experiments {exps}")
+    return out
+
+
 def append_run_log(out_dir: Path, record: dict):
     """One JSON line per epoch -> outputs/run_log.jsonl. Cheap history you can plot."""
     out_dir = Path(out_dir)
